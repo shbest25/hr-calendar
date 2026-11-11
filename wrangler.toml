@@ -1,0 +1,11 @@
+# Cloudflare Pages 설정. 정적 파일은 public/, 서버 코드는 functions/ 에 있다.
+name = "hr-calendar"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "public"
+
+# D1 데이터베이스. 만든 뒤 database_id 를 채운다:
+#   npx wrangler d1 create hr-calendar
+[[d1_databases]]
+binding = "DB"
+database_name = "hr-calendar"
+database_id = "여기에-D1-database_id-를-붙여넣기"

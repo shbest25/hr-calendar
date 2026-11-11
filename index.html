@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- GitHub Pages 가 저장소 루트를 사이트로 내보낼 때 쓰는 안내판. 실제 화면은 public/ 안에 있다. -->
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=./public/#/calendar">
+  <title>HR 캘린더</title>
+  <script>location.replace('./public/' + (location.hash && location.hash.startsWith('#/') ? location.hash : '#/calendar'));</script>
+</head>
+<body>
+  <p style="font-family:sans-serif;padding:24px">달력으로 이동 중… 자동으로 넘어가지 않으면 <a href="./public/#/calendar">여기</a>를 누르세요.</p>
+</body>
+</html>
