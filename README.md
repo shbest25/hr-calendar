@@ -135,6 +135,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File serve.ps1
    (**Secret key / service_role** 은 절대 넣지 마세요. Publishable 키는 공개용이라 GitHub 에 올라가도 됩니다.)
 4. **Authentication → Users → Add user → Create new user** 에서 본인 이메일을 넣고, Auto Confirm User 를 켠 채 만듭니다.
    이 목록에 있는 사람만 로그인할 수 있습니다.
+   (**Send invitation** 으로 초대했다면 초대 메일의 링크를 1시간 안에 눌러야 계정이 열립니다. 못 눌러서 "초대를 아직 수락하지 않은 이메일" 오류가 나면
+   SQL Editor 에서 `update auth.users set email_confirmed_at = now() where email = '내메일';` 을 한 번 실행하면 됩니다.)
+   로그인 메일은 무료 프로젝트에서 **시간당 2통**까지만 가고, 링크는 **1시간**이면 만료됩니다.
 5. **Authentication → Sign In / Providers → Email** 에서 **Allow new users to sign up 을 끕니다.** (모르는 사람이 가입해 고치는 것을 막습니다.)
 6. **Authentication → URL Configuration** 에서
    - Site URL: `https://<내아이디>.github.io/hr-calendar/public/`

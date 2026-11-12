@@ -67,7 +67,8 @@ export class SupabaseStore {
     const redirectTo = location.origin + location.pathname;
     const { error } = await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } });
     if (error) {
-      if (/Signups not allowed|not found|otp_disabled/i.test(error.message)) throw new Error('등록되지 않은 이메일입니다. Supabase → Authentication → Users 에 먼저 추가해 주세요.');
+      // 초대만 받고 아직 수락(확인)하지 않은 계정도 Supabase 는 같은 오류를 돌려준다.
+      if (/Signups not allowed|not found|otp_disabled/i.test(error.message)) throw new Error('등록되지 않았거나 초대를 아직 수락하지 않은 이메일입니다. Supabase → Authentication → Users 에서 추가하거나, 초대 메일의 링크를 먼저 눌러 주세요.');
       throw explain(error);
     }
     return true;
