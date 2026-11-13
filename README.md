@@ -26,7 +26,8 @@
 ## 폴더 구조
 
 ```
-시작.bat                ← 더블클릭하면 내 컴퓨터에서 달력이 열린다
+시작.bat                ← 더블클릭하면 내 컴퓨터에서 달력이 열린다 (Python 필요)
+serve.ps1               ← Python 이 없는 컴퓨터용: PowerShell 만으로 달력 서버를 켠다
 index.html              ← GitHub Pages 용 안내판: public/ 으로 자동 이동
 .nojekyll               ← GitHub Pages 가 파일을 그대로 내보내게 하는 빈 파일
 public/                 ← 브라우저에 그대로 전달되는 파일(정적)
@@ -91,6 +92,14 @@ python -m http.server 8765 --directory public
 그 다음 브라우저 주소창에 `http://localhost:8765/#/calendar` 를 **직접 입력**합니다.
 터미널에 찍히는 `http://[::]:8765/` 링크는 안내용이라 눌러도 열리지 않습니다.
 (`index.html` 을 더블클릭해 열면 ES 모듈 보안 제한 때문에 동작하지 않을 수 있으니 위처럼 서버로 여세요.)
+
+**Python 이 없는 컴퓨터(외부 PC 등)에서는** `시작.bat` 대신 이 폴더에서 아래를 실행합니다. Windows 에 기본으로 있는 PowerShell 만 씁니다.
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File serve.ps1
+```
+
+켜진 뒤 브라우저에서 `http://localhost:8765/#/calendar` 를 열면 됩니다. 끄려면 그 창에서 Ctrl+C.
 
 ## 2. 포트폴리오로 공개하기 (GitHub Pages + Supabase)
 
