@@ -1,0 +1,152 @@
+/* 홈 개편·자동화 예약·전자계약서 엑셀·복지카드 화면(2026-11-18 허브 업데이트 이식). style.css 의 토큰을 그대로 쓴다. */
+
+/* hidden 속성은 display 를 정한 칸(.field 등)에서도 먹어야 한다 — 입사자 서랍의 추천인·계약 종료일 칸이 이것으로 숨는다. */
+[hidden] { display: none !important; }
+
+/* ── 홈: 위 줄 · 오늘 할 일 | 자동화 현황 · 인원 카드 줄 · 떠 있는 [할 일] ── */
+#board:has(> .hm-top) { padding-bottom: 90px; }
+.hm-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.hm-date { display: flex; align-items: baseline; gap: 8px; }
+.hm-md { font-size: 40px; font-weight: 900; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.hm-dow { font-size: 16px; font-weight: 800; }
+.hm-line { margin: 0; font-size: 13.5px; color: var(--muted); }
+.hm-line em { font-style: normal; font-weight: 700; color: var(--sun); }
+.hm-calbtn { margin-left: auto; text-decoration: none; }
+.hm-row { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; align-items: stretch; }
+.hm-row.one { grid-template-columns: minmax(0, 1fr); }
+.hm-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hm-panel h3 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.hm-cnt { min-width: 24px; height: 22px; padding: 0 7px; border-radius: 8px; background: var(--tag); color: var(--g-hover); font-size: 11.5px; font-weight: 800; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.hm-quiet { margin: 0; font-size: 13px; color: var(--muted); }
+.hm-tasks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.hm-task { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px; border-radius: 12px; background: var(--bg); }
+.hm-task.late { box-shadow: inset 3px 0 0 var(--sun); }
+.hm-task.done .hm-tasktitle { color: var(--muted); text-decoration: line-through; }
+.hm-check { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+.hm-check input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--g); }
+.hm-check input:disabled { cursor: default; }
+.hm-tasktitle { font-size: 13.5px; font-weight: 700; overflow-wrap: anywhere; }
+.hm-lead { color: var(--muted); font-size: 12px; }
+.hm-late { flex: none; height: 22px; padding: 0 8px; border-radius: 8px; background: #FBEDEB; color: var(--sun); font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; }
+.hm-due { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hm-more { align-self: flex-start; padding: 8px 16px; border: 1px dashed var(--line-2); border-radius: 999px; background: none; font: inherit; font-size: 12.5px; color: var(--muted); cursor: pointer; text-decoration: none; }
+.hm-more:hover { border-color: var(--k); color: var(--text); }
+.hm-retry { border: 1px solid var(--line-2); border-radius: 999px; background: #fff; font: inherit; font-size: 12px; font-weight: 600; padding: 3px 12px; cursor: pointer; }
+.hm-panelhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hm-link { border: 0; background: none; padding: 4px 8px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.hm-link:hover { background: var(--soft); color: var(--text); }
+.hm-carelist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.hm-careitem { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 12px; border: 0; border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
+.hm-careitem:hover { background: var(--soft); }
+.hm-careitem.bad { box-shadow: inset 3px 0 0 var(--sun); }
+.hm-careitem > .chip { flex: none; }
+.hm-caredate { flex: none; width: 54px; padding: 4px 0; border-radius: 9px; background: var(--k); color: #fff; text-align: center; font-size: 12.5px; font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.hm-caredate small { display: block; color: #fff; font-size: 10.5px; font-weight: 600; opacity: .8; }
+.hm-caredate.bad { background: var(--sun); }
+.hm-caretext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hm-caretext b { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-caretext span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-carepill { flex: none; padding: 1px 9px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--card); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hm-carepill.go { background: var(--g); border-color: var(--g); color: #fff; }
+.hm-carepill.bad { background: #FBEDEB; border-color: #EFC9C5; color: var(--sun); }
+.hm-carepill.done { background: var(--soft); border-color: transparent; color: var(--muted); }
+.hm-care { min-height: 360px; max-height: 520px; }
+.hm-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--bg); }
+.hm-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 7px 8px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.hm-tab:hover { color: var(--text); }
+.hm-tab.on { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(30, 42, 58, .12); }
+.hm-tab b { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--line); color: var(--text); font-size: 11px; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.hm-tab b.bad { background: #FBEDEB; color: var(--sun); }
+.hm-tabpanel { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.hm-orgs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.hm-org { position: relative; min-width: 0; padding: 14px 16px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.hm-org:hover { border-color: var(--g); }
+.hm-orglink { position: absolute; inset: 0; border-radius: inherit; z-index: 0; }
+.hm-orgname { font-size: 12px; font-weight: 600; color: var(--muted); }
+.hm-orgn { font-size: 26px; font-weight: 900; letter-spacing: -.03em; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.hm-orgn i { font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); margin-left: 3px; }
+.hm-org.all { background: var(--k); color: #fff; border-color: var(--k); }
+.hm-org.all .hm-orgname, .hm-org.all .hm-orgn i { color: #B4BAB4; }
+.hm-org.all .hm-orgn { color: var(--g); }
+.hm-to { position: relative; z-index: 1; margin-top: auto; padding-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); text-decoration: none; border-top: 1px solid var(--line); }
+.hm-org > :has(+ .hm-to) { margin-bottom: 10px; }
+.hm-to b { margin-left: 4px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.hm-to-one.rest b { color: var(--sun); }
+.hm-to:hover b { text-decoration: underline; }
+.hm-org.all .hm-to { border-top-color: #3A4556; color: #B4BAB4; }
+.hm-org.all .hm-to b { color: #fff; }
+.hm-org.all .hm-to-one.rest b { color: #FFB199; }
+.hm-fab { position: fixed; right: 28px; bottom: 26px; z-index: 4; height: 54px; padding: 0 22px; border: 0; border-radius: 16px; background: var(--g); color: #fff; display: inline-flex; align-items: center; gap: 10px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow); }
+.hm-fab:hover { background: var(--g-hover); }
+.hm-fab .ico { width: 20px; height: 20px; }
+
+/* ── 자동화 예약 ── */
+.auto-when { display: flex; gap: 10px; margin-top: 10px; }
+.auto-when .auto-field { flex: 1; }
+.auto-books { margin-top: 14px; }
+.auto-books summary { cursor: pointer; font-size: 13px; font-weight: 700; padding: 4px 0; }
+.auto-books .auto-list { margin-top: 8px; }
+.auto-books .auto-list li { display: flex; align-items: center; gap: 8px; }
+.auto-books .auto-list li.bad .auto-who { color: var(--sun); }
+.auto-books .auto-person { flex: 1; }
+.auto-mark { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--tag); color: var(--g-hover); font-size: 11px; font-weight: 700; vertical-align: middle; }
+
+/* ── 신규 입사자: 전자계약서 엑셀 칸 ── */
+.hc .hc-pay { max-width: 280px; margin: 10px 0 6px; }
+.hc-state { margin: 0 0 8px; font-size: 12.5px; }
+.hc-sum { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 12.5px; color: var(--muted); }
+.hc-sum b { color: var(--text); }
+.hc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hc-with { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+
+/* ── 복지카드(#/welfare) ── */
+.wf { max-width: 960px; display: flex; flex-direction: column; gap: 14px; }
+.wf-head { margin-bottom: 0; }
+.wf-head h2 { margin: 0 0 2px; }
+.wf-card { display: flex; flex-direction: column; gap: 12px; }
+.wf-card-head h3 { margin: 0 0 4px; font-size: 16px; }
+.wf-card-head p { margin: 0; line-height: 1.55; }
+.wf-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.wf-line .field { margin-bottom: 0; min-width: 200px; }
+.wf-line .btn { height: 38px; }
+.wf-file input[type="file"] { height: auto; padding: 8px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: #fff; font: inherit; font-size: 13px; }
+.wf-group { display: flex; flex-direction: column; gap: 6px; }
+.wf-group-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 4px 0 0; font-size: 13px; font-weight: 700; }
+.wf-group-title em { font-style: normal; font-weight: 400; font-size: 11.5px; color: var(--muted); }
+.wf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wf-row { display: grid; grid-template-columns: 20px auto auto 1fr; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 12.5px; }
+label.wf-row { cursor: pointer; }
+.wf-row input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--g); }
+.wf-row > span { color: var(--muted); }
+.wf-row > em { font-style: normal; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-row.wf-row-x { grid-template-columns: auto auto 1fr auto auto; }
+.wf-nobox { display: inline-flex; color: #8A5A00; }
+.wf-nobox .ico { width: 16px; height: 16px; }
+.wf-exclude summary { cursor: pointer; font-size: 13.5px; padding: 2px 0; }
+.wf-exclude summary span { color: var(--muted); font-size: 12.5px; }
+.wf-exclude > :not(summary) { margin-top: 10px; }
+.wf-exclude .lead-muted { line-height: 1.55; }
+.wf-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.wf-add input { flex: 1 1 160px; min-width: 0; height: 36px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; font: inherit; font-size: 13px; }
+.wf-sum { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 12px 16px; border-radius: 12px; background: var(--soft); font-size: 13px; }
+.wf-same { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--tag); font-size: 13px; }
+.wf-same .ico { width: 16px; height: 16px; }
+.wf-done { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-radius: 12px; background: #EEF7EF; font-size: 12.5px; }
+.wf-done p { margin: 0; white-space: pre-line; }
+.wf-acts { display: flex; justify-content: flex-end; }
+.wf-try { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wf-cmp p { margin: 4px 0; font-size: 12.5px; color: var(--muted); }
+.wf-cmp b { color: var(--text); margin-right: 4px; }
+
+@media (max-width: 760px) {
+  .hm-row { grid-template-columns: minmax(0, 1fr); }
+  .hm-md { font-size: 32px; }
+  .hm-calbtn { margin-left: 0; }
+  .hm-task { flex-wrap: wrap; }
+  .hm-fab { right: 16px; bottom: 16px; height: 48px; padding: 0 18px; }
+  .wf-row { grid-template-columns: 20px 1fr; }
+  .wf-row > span, .wf-row > em { grid-column: 2; white-space: normal; }
+  .wf-row.wf-row-x { grid-template-columns: 1fr auto; }
+  .wf-row.wf-row-x > span, .wf-row.wf-row-x > em { grid-column: auto; }
+  .auto-when { flex-direction: column; }
+}

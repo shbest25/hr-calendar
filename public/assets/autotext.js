@@ -168,7 +168,7 @@ export function hireValues(hire, settings, { mention = '' } = {}) {
     ...companyValues(settings),
     이름: h.name || '', 성별: h.gender || '', 입사일: h.start_date || '',
     부서: h.dept || '', 팀: h.team || '', 파트: h.part || '', 직군: h.job_group || '', 직무: h.job || '',
-    고용형태: h.employ_type || '', 연락처: h.phone || '', 개인이메일: h.email || '',
+    고용형태: h.employ_type || '', 직책: h.title || '', 계약종료일: h.contract_end || '', 연락처: h.phone || '', 개인이메일: h.email || '',
     지원경로: h.route || '', 추천인: h.referrer || '', 영문이름: h.eng_name || '', 경력: h.career || '', 사번: h.emp_no || '',
     멘션: mention || '',
   };

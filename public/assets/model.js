@@ -101,8 +101,8 @@ export function nextKey(used, at = 1) {
 // ---------- 자동화 기록(records) ----------
 // 자동화 화면(신규 입사자·직원명부·증명서·실행 내역·설정)은 모두 '기록' 한 테이블에 JSON 으로 둔다.
 // kind 로 종류를 가른다. 모양 검사는 가볍게만 한다(화면이 만든 값이고, 잘못돼도 달력은 멀쩡하다).
-// org = 조직도(한 기록에 줄 전부), to = TO 자리와 기록, eval = 평가 현황.
-export const RECORD_KINDS = ['hire', 'staff', 'cert', 'run', 'settings', 'org', 'to', 'eval'];
+// org = 조직도(한 기록에 줄 전부), to = TO 자리와 기록, eval = 평가 현황, welfare = 복지카드 확정 명단·항상 제외, book = 자동화 예약.
+export const RECORD_KINDS = ['hire', 'staff', 'cert', 'run', 'settings', 'org', 'to', 'eval', 'welfare', 'book'];
 
 export function cleanRecord(kind, data) {
   if (!RECORD_KINDS.includes(kind)) throw new Error('모르는 기록 종류입니다: ' + kind);
@@ -238,6 +238,10 @@ export const DEFAULT_SETTINGS = {
     manager: '',   // 면접확인서 담당자 이름(비우면 로그인한 사람)
     seal: '',      // 인감 그림(data: URL). [설정]에서 올린다.
   },
+  // 복지카드 월 금액. 입사 senior_years 년이 지나면 senior, 아니면 base.
+  welfare: { base: 250000, senior: 275000, senior_years: 3 },
+  // 전자계약서 엑셀. 월 급여에서 식대를 뺀 것이 기본급이다.
+  contract: { meal: 200000 },
 };
 
 // 저장된 설정 위에 기본값을 덮어 빈 칸을 채운다(새 항목이 생겨도 옛 설정이 깨지지 않게).

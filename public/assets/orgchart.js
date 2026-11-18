@@ -19,6 +19,8 @@ export const 직군들 = ['프로그램', '아트', '기획', 'QA', 'PM', '스�
 export const 직책들 = ['파트원', '파트장', '리더', '팀장', '실장', '본부장', '디렉터', 'PD', 'CEO', 'CTO', 'CFO', 'CBO'];
 // 조직 칸 안에 적는 리더의 직책. 파트장·파트원은 제 상자가 있으므로 뺀다.
 export const 칸직책들 = 직책들.filter((v) => v !== '파트원' && v !== '파트장');
+// 신규 입사자 입력의 직책 목록. 위 목록에서 '파트원' 만 '팀원' 으로 바꾼 것이다 — 입사 때는 파트가 정해지지 않은 사람이 많다.
+export const 입사직책들 = 직책들.map((v) => (v === '파트원' ? '팀원' : v));
 
 // ---------- 나무 ----------
 const byPos = (a, b) => (Number(a.position) || 0) - (Number(b.position) || 0) || String(a.id).localeCompare(String(b.id));

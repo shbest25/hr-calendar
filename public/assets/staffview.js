@@ -7,7 +7,8 @@ import { DATE, dday, todayYmd } from './autotext.js';
 
 export const STAFF_FIELDS = [
   ['name', '이름'], ['emp_no', '사번'], ['dept', '부서'], ['team', '팀'], ['part', '파트'], ['job_group', '직군'], ['job', '직무'],
-  ['title', '직책'], ['joined', '입사일'], ['left', '퇴사일'], ['email', '회사 이메일'], ['phone', '연락처'], ['employ_type', '고용형태'],
+  ['title', '직책'], ['joined', '입사일'], ['group_joined', '그룹입사일'], ['left', '퇴사일'], ['leave_from', '휴직시작'], ['leave_to', '휴직종료'],
+  ['email', '회사 이메일'], ['phone', '연락처'], ['employ_type', '고용형태'],
 ];
 
 let query = '';
@@ -38,6 +39,8 @@ function editDrawer(ctx, row, refresh) {
     el('div', { class: 'row' }, field('부서', text('dept')), field('팀', text('team')), field('파트', text('part'))),
     el('div', { class: 'row' }, field('직군', text('job_group')), field('직무', text('job')), field('직책', text('title'))),
     el('div', { class: 'row' }, field('입사일 *', text('joined', { type: 'date' })), field('퇴사일', text('left', { type: 'date' }), '비우면 재직 중')),
+    el('div', { class: 'row' }, field('그룹입사일', text('group_joined', { type: 'date' }), '전적·재입사자는 처음 입사일. 비우면 입사일과 같게 봅니다(복지카드 금액·3개월 셈).'),
+      field('휴직 시작', text('leave_from', { type: 'date' })), field('휴직 종료', text('leave_to', { type: 'date' }), '복직 예정일')),
     el('div', { class: 'row' }, field('회사 이메일', text('email', { type: 'email' }), '장기근속 메일이 이 주소로 갑니다.'), field('연락처', text('phone'))),
     el('div', { class: 'row' }, field('고용형태', text('employ_type', { placeholder: '정규 / 계약' })), field('메모', text('note'))));
   const saveBtn = el('button', { type: 'button', class: 'btn primary' }, icon('check'), '저장');

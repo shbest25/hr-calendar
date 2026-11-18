@@ -7,6 +7,7 @@ import { expandMonth, holidaysOf, ymd, addDays } from './repeat.js';
 import { HOLIDAYS, COVERED_YEARS } from './holidays.js';
 import { DEFAULT_CATEGORIES, cleanItem, cleanCategories, cleanRecord, mergeSettings } from './model.js';
 import { SUPABASE } from './config.js';
+import { 대상월기본, 지난달, 월끝, 월글, 근속금액 } from './welfarecalc.js';
 
 const KEY = 'hr-calendar-v1';
 const uid = () => 'cal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -40,8 +41,22 @@ function loadLocal() {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && Array.isArray(saved.items) && Array.isArray(saved.categories)) {
       if (!Array.isArray(saved.records)) saved.records = seedRecords();
-      // 예전에 열어 본 브라우저에는 조직도·TO·평가 보기 자료가 없다 — 그것만 채워 넣는다.
-      else if (!saved.records.some((r) => r.kind === 'org')) saved.records.push(...seedRecords().filter((r) => ['org', 'to', 'eval'].includes(r.kind)));
+      else {
+        const fresh = seedRecords();
+        const has = (kind) => saved.records.some((r) => r.kind === kind);
+        // 예전에 열어 본 브라우저에는 조직도·TO·평가 보기 자료가 없다 — 그것만 채워 넣는다.
+        if (!has('org')) saved.records.push(...fresh.filter((r) => ['org', 'to', 'eval'].includes(r.kind)));
+        // 복지카드·예약 보기 자료(2026-11-18)와 그때 늘린 직원명부 사람들도 없으면 채운다(이미 있는 사번은 건드리지 않는다).
+        if (!has('welfare')) {
+          const ids = new Set(saved.records.map((r) => r.id));
+          const empNos = new Set(saved.records.filter((r) => r.kind === 'staff').map((r) => r.data.emp_no));
+          saved.records.push(...fresh.filter((r) => ['welfare', 'book'].includes(r.kind) && !ids.has(r.id)));
+          saved.records.push(...fresh.filter((r) => r.kind === 'staff' && !ids.has(r.id) && !empNos.has(r.data.emp_no)));
+          const probation = fresh.find((r) => r.id === 'rec_evals')?.data.lists.find((l) => l.id === 'el_probation');
+          const mine = saved.records.find((r) => r.id === 'rec_evals')?.data.lists?.find((l) => l.id === 'el_probation');
+          if (probation && mine && !mine.people.some((p) => p.id === 'ev_p4')) mine.people.push(probation.people.find((p) => p.id === 'ev_p4'));
+        }
+      }
       return saved;
     }
   } catch { /* 깨진 저장은 버린다 */ }
@@ -53,18 +68,28 @@ function seedRecords() {
   const y = new Date().getFullYear();
   const m = String(new Date().getMonth() + 1).padStart(2, '0');
   const now = new Date().toISOString();
+  const today = new Date();
+  const soon = (n) => ymd(addDays(today, n));
+  const ago = (n) => new Date(today.getTime() - n * 86400000).toISOString();
+  const agoDay = (n) => ago(n).slice(0, 10);
+  // 복지카드 보기 자료가 여러 경우(3년 지남·휴직·퇴사 예정·수습 통과·전적·항상 제외)를 보여 주도록 열한 명을 둔다.
   const staff = [
     { name: '홍길동', emp_no: 'E1001', dept: '경영지원실', team: '인사팀', part: '', job_group: '경영/사업', job: '인사 담당', title: '팀장', joined: `${y - 6}-${m}-10`, left: '', email: 'gildong@example.com', employ_type: '정규' },
-    { name: '김보람', emp_no: 'E1002', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '', joined: `${y - 3}-${m}-02`, left: '', email: 'boram@example.com', employ_type: '정규' },
-    { name: '이서준', emp_no: 'E1003', dept: '디자인실', team: 'UX팀', part: '', job_group: '아트', job: 'UI 디자인', title: '', joined: `${y - 1}-03-15`, left: '', email: 'seojun@example.com', employ_type: '정규' },
+    { name: '김보람', emp_no: 'E1002', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '파트장', joined: `${y - 3}-${m}-02`, left: '', email: 'boram@example.com', employ_type: '정규' },
+    { name: '이서준', emp_no: 'E1003', dept: '디자인실', team: 'UX팀', part: '', job_group: '아트', job: 'UI 디자인', title: '파트장', joined: `${y - 1}-03-15`, left: '', email: 'seojun@example.com', employ_type: '정규' },
     { name: '박지우', emp_no: 'E0907', dept: '사업실', team: '마케팅팀', part: '', job_group: '마케팅', job: '퍼포먼스 마케팅', title: '', joined: `${y - 4}-05-20`, left: `${y - 1}-08-31`, email: '', employ_type: '정규' },
+    { name: '최다은', emp_no: 'E1004', dept: '경영지원실', team: '인사팀', part: '', job_group: '스탭', job: '인사 운영', title: '파트장', joined: `${y - 2}-07-01`, left: '', email: 'daeun@example.com', employ_type: '정규' },
+    { name: '한지민', emp_no: 'E1005', dept: '경영지원실', team: '총무팀', part: '', job_group: '스탭', job: '총무', title: '파트장', joined: `${y - 4}-03-02`, left: '', leave_from: agoDay(45), leave_to: soon(40), email: 'jimin@example.com', employ_type: '정규' },
+    { name: '송민재', emp_no: 'E1006', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '', joined: `${y - 2}-09-01`, left: soon(20), email: 'minjae@example.com', employ_type: '정규' },
+    { name: '신동엽', emp_no: 'E1007', dept: '개발실', team: '클라이언트팀', part: '', job_group: '프로그램', job: '클라이언트 개발', title: '', joined: agoDay(75), left: '', email: 'dongyeop@example.com', employ_type: '정규' },
+    { name: '류하린', emp_no: 'E1008', dept: '디자인실', team: '아트팀', part: '', job_group: '아트', job: '배경 아트', title: '', joined: agoDay(100), left: '', email: 'harin@example.com', employ_type: '정규' },
+    { name: '백서윤', emp_no: 'E1009', dept: '개발실', team: 'QA팀', part: '', job_group: 'QA', job: 'QA', title: '', joined: agoDay(20), left: '', email: 'seoyun@example.com', employ_type: '계약', contract_end: soon(345) },
+    { name: '윤서아', emp_no: 'E1010', dept: '경영진', team: '', part: '', job_group: '경영/사업', job: 'CFO', title: 'CFO', joined: `${y - 5}-01-02`, left: '', email: 'seoa@example.com', employ_type: '정규' },
+    { name: '김태오', emp_no: 'E1011', dept: '경영지원실', team: '재무팀', part: '', job_group: '경영/사업', job: '회계', title: '', joined: `${y - 1}-02-01`, group_joined: `${y - 4}-02-01`, left: '', email: 'taeo@example.com', employ_type: '정규' },
   ];
   const rows = staff.map((s, i) => ({ id: 'rec_seed' + i, kind: 'staff', data: s, created_at: now, updated_at: now }));
 
   // 신규 입사자: 단계마다 한 명씩. 이름·연락처는 모두 지어낸 값이다.
-  const today = new Date();
-  const soon = (n) => ymd(addDays(today, n));
-  const ago = (n) => new Date(today.getTime() - n * 86400000).toISOString();
   const ok = (days, extra = {}) => ({ status: 'ok', at: ago(days), by: '김담당', ...extra });
   const hires = [
     {
@@ -111,7 +136,42 @@ function seedRecords() {
   ];
   runs.forEach((r, i) => rows.push({ id: 'rec_seedrun' + i, kind: 'run', data: r, created_at: r.at, updated_at: r.at }));
   rows.push(...seedOrg({ y, soon, ago, now }));
+  rows.push(...seedWelfare({ staff, today, ago, now }));
+  rows.push(...seedBooks({ soon, ago, lmLabel }));
   return rows;
+}
+
+// 복지카드: 지난달 확정 명단과 항상 제외 목록. 대상월(20일 이후면 다음 달)의 '지난달' 에 맞춰 넣는다.
+function seedWelfare({ staff, today, ago, now }) {
+  const 오늘 = ymd(today);
+  const ym = 지난달(대상월기본(오늘));
+  const 끝 = 월끝(ym);
+  const 명단 = staff
+    .filter((s) => !['E0907', 'E1007', 'E1008', 'E1009', 'E1010', 'E1011'].includes(s.emp_no)) // 퇴사자·수습 중·새 입사·임원(항상 제외)·전적자는 지난달 명단에 없다
+    .filter((s) => !s.left || s.left >= `${ym}-01`)
+    .map((s) => ({ 사번: s.emp_no, 이름: s.name, 금액: 근속금액(s.group_joined || s.joined, ym), 이슈: s.left && s.left <= 끝 ? `${Number(s.left.slice(5, 7))}/${Number(s.left.slice(8, 10))} 퇴사` : '' }));
+  const data = {
+    months: { [ym]: 명단 },
+    exclude: [{ emp_no: 'E1010', reason: '임원 — 별도 복지 적용', added_at: ago(200), by: '김담당' }],
+    log: [{ at: ago(25), by: '김담당', text: `${월글(ym)} 지급내역·한도설정 만듦 — ${명단.length}명` }],
+  };
+  return [{ id: 'rec_welfare', kind: 'welfare', data, created_at: ago(200), updated_at: now }];
+}
+
+// 자동화 예약 둘: 기다리는 것 하나, 때를 놓친 것 하나(홈의 [확인 필요] 에 보인다).
+function seedBooks({ soon, ago, lmLabel }) {
+  const 기다림 = {
+    auto: 'payroll-notice', run_at: new Date(`${soon(4)}T10:00:00+09:00`).toISOString(), summary: `본사 · ${lmLabel} 귀속 · ${Number(soon(4).slice(8, 10))}일 지급`,
+    where: '#전사공지', text: '(예약된 급여 공지 문구)', state: 'waiting', input: {}, created_at: ago(1), by: '김담당',
+  };
+  const 놓침 = {
+    auto: 'payroll-notice', run_at: ago(2), summary: '본사 · 상여 지급 안내', where: '#전사공지', text: '(예약된 상여 공지 문구)', state: 'failed',
+    detail: '정해진 때에 브라우저가 열려 있지 않았습니다. 지금 직접 실행해 주세요.', done_at: ago(1), input: {}, created_at: ago(5), by: '김담당',
+  };
+  return [
+    { id: 'rec_seedbook0', kind: 'book', data: 기다림, created_at: ago(1), updated_at: ago(1) },
+    { id: 'rec_seedbook1', kind: 'book', data: 놓침, created_at: ago(5), updated_at: ago(1) },
+  ];
 }
 
 // 조직도·TO표·평가 현황의 보기 자료. 조직 이름도 사람 이름도 모두 지어낸 것이다(45명).
@@ -195,6 +255,8 @@ function seedOrg({ y, soon, ago, now }) {
         person('ev_p1', '신동엽', '클라이언트 파트', `${ago(75).slice(5, 7).replace(/^0/, '')}/${ago(75).slice(8, 10).replace(/^0/, '')} 입사 · 프로그램`, [D('', '임수빈'), D('', '서지호'), D('', '임수빈'), D('', '임수빈'), D('', '임수빈'), st('now', soon(-4), '서지호'), st('todo', '', '임수빈')]),
         person('ev_p2', '황지우', 'UI 파트', `${ago(40).slice(5, 7).replace(/^0/, '')}/${ago(40).slice(8, 10).replace(/^0/, '')} 입사 · 아트`, [D('', '이서준'), D('', '오세훈'), st('now', soon(2), '이서준'), T(), T(), T(), T()]),
         person('ev_p3', '백서윤', 'QA 파트', `${ago(20).slice(5, 7).replace(/^0/, '')}/${ago(20).slice(8, 10).replace(/^0/, '')} 입사 · QA`, [D('', '장민호'), st('wait', '', '강현우'), T(), T(), T(), T(), T()]),
+        // 수습을 모두 마친 사람 — 복지카드 화면이 '수습 통과' 로 찾아 이번 달 명단에 넣자고 한다.
+        person('ev_p4', '류하린', '아트 파트', `${ago(100).slice(5, 7).replace(/^0/, '')}/${ago(100).slice(8, 10).replace(/^0/, '')} 입사 · 아트`, [D('', '고은채'), D('', '오세훈'), D('', '고은채'), D('', '고은채'), D('', '고은채'), D(ago(12).slice(0, 10), '오세훈'), D(ago(8).slice(0, 10), '고은채')]),
       ],
     },
     {

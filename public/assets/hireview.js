@@ -7,6 +7,8 @@ import { bubble, chip, confirmBox, copyText, field, iconButton, openDrawer, sele
 import {
   HIRE_STAGES, HIRE_SORTS, sortHires, dday, formatPhone, hireValues, fill, missingKeys, mailtoUrl, postSlack, stamp, todayYmd,
 } from './autotext.js';
+import { 입사직책들 } from './orgchart.js';
+import { contractSection } from './hirecontract.js';
 
 const HINT = {
   register: '입사가 확정되어 정보를 받아 둔 사람입니다. 할 일에서 입사일 일정을 만들면 저절로 명부 등재로 넘어갑니다.',
@@ -178,7 +180,16 @@ export async function openHire(ctx, row, refresh) {
   route.addEventListener('change', () => { d.route = route.value; syncReferrer(); changed(); });
   syncReferrer();
   const employ = selectBox('고용형태', [['', '고르세요'], ...(h.employ_types ?? []).map((x) => [x, x])], d.employ_type, { disabled: readOnly });
-  employ.addEventListener('change', () => { d.employ_type = employ.value; changed(); });
+  // 계약직이면 계약 종료일을 받는다(계약서 엑셀의 근로 기간·연봉 기간이 여기서 끝난다).
+  const contractEnd = el('input', { type: 'date', disabled: readOnly, value: d.contract_end ?? '' });
+  contractEnd.addEventListener('input', () => { d.contract_end = contractEnd.value; changed(); });
+  const contractEndField = field('계약 종료일', contractEnd, '계약직만 적습니다.');
+  const syncContract = () => { contractEndField.hidden = !/^계약/.test(String(employ.value)); };
+  employ.addEventListener('change', () => { d.employ_type = employ.value; syncContract(); changed(); });
+  syncContract();
+  // 직책. 입사 때는 파트가 정해지지 않은 사람이 많아 '팀원' 부터 고른다(조직도의 직책 목록에서 파트원만 팀원으로 바꾼 것).
+  const titleSel = selectBox('직책', [['', '고르세요'], ...입사직책들.map((x) => [x, x])], d.title ?? '', { disabled: readOnly });
+  titleSel.addEventListener('change', () => { d.title = titleSel.value; changed(); });
 
   const REQUIRED = [['name', '이름'], ['start_date', '입사일'], ['dept', '부서'], ['job_group', '직군'], ['job', '직무'], ['employ_type', '고용형태'], ['email', '개인이메일']];
   const missing = () => REQUIRED.filter(([k]) => !String(d[k] ?? '').trim()).map(([, l]) => l);
@@ -202,10 +213,10 @@ export async function openHire(ctx, row, refresh) {
 
   const form = el('form', { class: 'hire-form', novalidate: true, onsubmit: (e) => e.preventDefault() },
     el('div', { class: 'row' }, field('이름 *', name), field('성별', gender)),
-    el('div', { class: 'row' }, field('입사일 *', start), field('고용형태 *', employ)),
+    el('div', { class: 'row' }, field('입사일 *', start), field('고용형태 *', employ), contractEndField),
     el('div', { class: 'row' }, field('부서 *', pick('dept', h.depts ?? [], '부서')), field('팀', text('team', { placeholder: '예: 인사팀' }))),
     el('div', { class: 'row' }, field('파트', text('part', { placeholder: '없으면 비움' })), field('직군 *', pick('job_group', h.jobs ?? [], '직군'))),
-    field('직무 *', text('job', { placeholder: '예: 시스템 기획자' })),
+    el('div', { class: 'row' }, field('직무 *', text('job', { placeholder: '예: 시스템 기획자' })), field('직책', titleSel)),
     el('div', { class: 'row' }, field('연락처', phone), field('개인이메일 *', text('email', { type: 'email', placeholder: 'name@example.com' }))),
     el('div', { class: 'row' }, field('지원경로', route), referrerField),
     el('div', { class: 'row' }, field('영문이름', text('eng_name', { placeholder: 'gildong.hong' }), '회사 계정·사원증에 쓰입니다.'), field('경력', text('career', { placeholder: '00년00개월' }))),
@@ -213,6 +224,12 @@ export async function openHire(ctx, row, refresh) {
       ? el('div', { class: 'row' }, field('사번', text('emp_no', { placeholder: '명부 등재 때 필요' })), field('회사 이메일', text('work_email', { type: 'email', placeholder: '명부에 적힙니다(선택)' })))
       : null,
     pv);
+
+  // ---- 전자계약서 엑셀(명부 등재 단계부터) ----
+  // 연봉은 이 칸에만 적고 저장하지 않는다. 명부 등재를 실행할 때 '함께 받기' 가 켜져 있으면 실행 직전 값으로 받는다.
+  const contract = !isNew && d.stage !== 'register'
+    ? contractSection({ readData: () => d, settings, watch: null, readOnly })
+    : null;
 
   // ---- 할 일 ----
   const taskBox = isNew ? null : el('section', { class: 'hire-sec' });
@@ -309,7 +326,9 @@ export async function openHire(ctx, row, refresh) {
       if (!ok) return;
       runBtn.disabled = true;
       runBtn.lastChild.textContent = '실행하는 중…';
-      await runTasks(chosen, notice);
+      // 명부 등재가 끝나면 서랍이 새로 열려 연봉 칸이 빈다 — 실행 직전 값을 읽어 둔다.
+      const snap = contract && picked.has('staff') ? contract.snap() : null;
+      await runTasks(chosen, notice, snap);
     });
 
     syncRun();
@@ -321,7 +340,7 @@ export async function openHire(ctx, row, refresh) {
   }
 
   // 고른 일을 차례로 한다. 하나가 실패해도 나머지는 계속하고, 결과를 사람 기록에 남긴다.
-  async function runTasks(chosen, notice) {
+  async function runTasks(chosen, notice, snap = null) {
     const now = () => new Date().toISOString();
     const by = who(ctx);
     const webhook = settings.company.slack_webhook;
@@ -363,11 +382,13 @@ export async function openHire(ctx, row, refresh) {
           const staff = await ctx.store.records('staff');
           if (staff.some((s) => s.data.emp_no && s.data.emp_no === d.emp_no)) throw new Error(`사번 ${d.emp_no} 이(가) 직원명부에 이미 있습니다.`);
           const saved = await ctx.store.saveRecord('staff', null, {
-            name: d.name, emp_no: d.emp_no, dept: d.dept, team: d.team || '', part: d.part || '', job_group: d.job_group, job: d.job, title: '',
-            joined: d.start_date, left: '', email: d.work_email || '', phone: d.phone || '', employ_type: d.employ_type, gender: d.gender || '', eng_name: d.eng_name || '', career: d.career || '', hire_id: id,
+            name: d.name, emp_no: d.emp_no, dept: d.dept, team: d.team || '', part: d.part || '', job_group: d.job_group, job: d.job, title: d.title || '',
+            joined: d.start_date, group_joined: d.start_date, left: '', email: d.work_email || '', phone: d.phone || '', employ_type: d.employ_type, contract_end: d.contract_end || '',
+            gender: d.gender || '', eng_name: d.eng_name || '', career: d.career || '', hire_id: id,
           });
           okAt('staff', { ref: saved.id });
           log(`직원명부에 올림 (사번 ${d.emp_no})`);
+          if (snap) { contract?.afterEnroll(snap); log('전자계약서 엑셀 받음'); }
         }
         done += 1;
       } catch (e) {
@@ -437,7 +458,7 @@ export async function openHire(ctx, row, refresh) {
     wide: true,
     body: el('div', {},
       isNew ? el('p', { class: 'lead-muted', style: 'margin-bottom:14px' }, '등록하면 이어서 일정·공지·메일 중 할 일을 골라 실행할 수 있습니다.') : null,
-      error, form, taskBox, results),
+      error, form, contract?.node ?? null, taskBox, results),
     footer: el('div', { style: 'display:flex;gap:8px;width:100%;align-items:center' },
       !isNew && d.stage === 'register' && ctx.canEdit ? el('button', { type: 'button', class: 'btn ghost', onclick: () => { ctl.close(); advance(ctx, { id, data: d }, 'enroll', refresh); } }, '명부 등재로') : null,
       !isNew && d.stage === 'enroll' && ctx.canEdit ? el('button', { type: 'button', class: 'btn ghost', onclick: () => { ctl.close(); advance(ctx, { id, data: d }, 'done', refresh); } }, '끝내기') : null,

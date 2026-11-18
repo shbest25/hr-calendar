@@ -8,12 +8,21 @@ import { icon } from './icons.js';
 import { bubble, chip, confirmBox, copyText, field, iconButton, openDrawer, selectBox, toast } from './ui.js';
 import {
   fill, missingKeys, monthLabel, payrollValues, longServiceTargets, longServiceValues,
-  stamp, thisMonth, mailtoUrl, postSlack, 짧은날짜,
+  stamp, thisMonth, mailtoUrl, postSlack, 짧은날짜, todayYmd,
 } from './autotext.js';
+import { 예약첫값, 예약시각, 예약상태이름, 때글, 지난예약처리 } from './autobook.js';
 
+// schedulable: [예약] 단추가 있는 자동화. bookDefault: 예약 창의 첫 값(급여 공지는 고른 지급일·오전 10시).
 export const AUTOS = [
-  { id: 'payroll-notice', title: '급여 공지 보내기', icon: 'wallet', what: '법인·귀속월·지급일만 고르면 공지 문구를 만들어 슬랙 채널에 올립니다.' },
+  { id: 'payroll-notice', title: '급여 공지 보내기', icon: 'wallet', what: '법인·귀속월·지급일만 고르면 공지 문구를 만들어 슬랙 채널에 올립니다. 날짜·시각을 정해 예약할 수도 있습니다.', schedulable: true, bookDefault: { dateFrom: 'payday', time: '10:00' } },
   { id: 'longservice-mail', title: '장기근속 케어 메일', icon: 'heart', what: '그 달에 근속 3·6·9년이 되는 사람을 직원명부에서 찾아 지원 안내 메일을 보냅니다.' },
+];
+
+// 자동화 전체 목록 맨 위의 '화면으로 가는 블록'. 신규 입사자·증명서 발급·복지카드는 화면이 따로 있어 누르면 그 화면으로 간다.
+export const SCREENS = [
+  { view: 'hire', icon: 'user-add', title: '신규 입사자', what: '입사 확정 → 일정·공지·안내 메일 → 계약서 엑셀 → 명부 등재까지 한 자리에서 합니다.' },
+  { view: 'cert', icon: 'doc', title: '증명서 발급', what: '면접확인서·취업활동 증명서·재직증명서·경력증명서를 PDF 로 만들고 발급대장에 적습니다.' },
+  { view: 'welfare', icon: 'card', title: '복지카드', what: '매달 지급내역·한도설정과 발급·해지 내역 엑셀을 만듭니다. 관리자만 씁니다.' },
 ];
 
 // 입력값은 화면을 오가도 남긴다(미리보기를 보고 다른 화면에 다녀와도 그대로).
@@ -51,7 +60,7 @@ function historyDrawer(auto, runs) {
 }
 
 // ---------- 급여 공지 ----------
-function payrollCard(auto, ctx, settings, runs, refresh) {
+function payrollCard(auto, ctx, settings, runs, refresh, books = []) {
   const input = keep[auto.id];
   const corps = settings.payroll.corps ?? [];
   const corpSel = selectBox('법인', [['', corps.length ? '고르세요' : '설정에서 먼저 적어 주세요'], ...corps.map((c) => [c.key, c.label])], input.corp);
@@ -60,6 +69,7 @@ function payrollCard(auto, ctx, settings, runs, refresh) {
   const slot = el('div', { class: 'auto-plan' });
   const runBtn = el('button', { type: 'button', class: 'btn primary', disabled: true }, icon('check'), '실행');
   const previewBtn = el('button', { type: 'button', class: 'btn ghost' }, icon('search'), '미리보기');
+  const bookBtn = auto.schedulable ? el('button', { type: 'button', class: 'btn ghost', disabled: true }, icon('clock'), '예약') : null;
   let plan = null;
   let editing = false;
   let resend = false;
@@ -73,7 +83,10 @@ function payrollCard(auto, ctx, settings, runs, refresh) {
   };
   for (const c of [corpSel, monthIn, payIn]) { c.addEventListener('change', reset); c.addEventListener('input', reset); }
 
-  const lock = () => { runBtn.disabled = !plan?.ok || editing || (plan?.sent_at && !resend); };
+  const lock = () => {
+    runBtn.disabled = !plan?.ok || editing || (plan?.sent_at && !resend);
+    if (bookBtn) bookBtn.disabled = !plan?.ok || editing || plan.missing.length > 0;
+  };
 
   function makePlan(editedText = '') {
     const corp = corps.find((c) => c.key === input.corp);
@@ -143,13 +156,70 @@ function payrollCard(auto, ctx, settings, runs, refresh) {
     }
   });
 
+  // 예약: 날짜·시각을 받아 기록해 둔다. 서버가 없으므로 브라우저가 열려 있을 때 그 시각이 되면 Webhook 으로 올린다(autobook.js).
+  bookBtn?.addEventListener('click', async () => {
+    if (!plan?.ok) return;
+    const webhook = settings.company.slack_webhook;
+    const 날짜 = el('input', { type: 'date', 'aria-label': '보낼 날짜' });
+    const 시각 = el('input', { type: 'time', step: '600', 'aria-label': '보낼 시각' });
+    const 첫값 = 예약첫값(auto, input, todayYmd());
+    날짜.value = 첫값.날짜;
+    시각.value = 첫값.시각;
+    const ok = await confirmBox({
+      title: `'${auto.title}' 을(를) 예약할까요?`,
+      message: (webhook
+        ? '적어 둔 때가 되면 슬랙에 저절로 올라갑니다. 다만 서버가 없어, 그때 이 앱이 브라우저에 열려 있어야 합니다. 닫혀 있었으면 홈의 [확인 필요] 에 뜹니다.'
+        : '슬랙 Webhook 이 [설정]에 없어 저절로 보낼 수는 없습니다. 때가 되면 홈의 [확인 필요] 에 떠서 잊지 않게 해 줍니다.')
+        + (plan.edited ? ' 이번에만 고친 문구로 예약합니다.' : ''),
+      confirm: '예약',
+      extra: el('div', { class: 'auto-when' },
+        el('label', { class: 'auto-field' }, el('span', {}, '날짜'), 날짜),
+        el('label', { class: 'auto-field' }, el('span', {}, '시각(한국 시간)'), 시각)),
+    });
+    if (!ok) return;
+    if (!날짜.value || !시각.value) { toast('날짜와 시각을 골라 주세요', { error: true }); return; }
+    const run_at = 예약시각(날짜.value, 시각.value);
+    if (Date.parse(run_at) <= Date.now()) { toast('이미 지난 때입니다. 지금 보내려면 [실행]을 눌러 주세요', { error: true }); return; }
+    try {
+      await ctx.store.saveRecord('book', null, {
+        auto: auto.id, run_at, summary: plan.summary, where: plan.where, text: plan.text, edited: plan.edited, state: 'waiting',
+        input: { ...input }, created_at: new Date().toISOString(), by: ctx.me?.email || ctx.me?.name || '',
+      });
+      toast(`${때글(run_at)} 에 보내도록 예약했습니다`);
+      refresh();
+    } catch (e) { toast(e.message, { error: true }); }
+  });
+
   return el('div', { class: 'auto-body' },
     el('div', { class: 'auto-fields' },
       el('label', { class: 'auto-field' }, el('span', {}, '법인'), corpSel),
       el('label', { class: 'auto-field' }, el('span', {}, '귀속월'), monthIn),
       el('label', { class: 'auto-field' }, el('span', {}, '지급일'), payIn)),
-    el('div', { class: 'auto-acts' }, previewBtn, runBtn),
-    slot);
+    el('div', { class: 'auto-acts' }, previewBtn, runBtn, bookBtn),
+    slot,
+    예약목록(auto, ctx, books, refresh));
+}
+
+// 이 자동화의 예약들. 기다리는 것이 있으면 펼쳐 둔다. 기다리는 예약은 취소할 수 있다.
+function 예약목록(auto, ctx, books, refresh) {
+  const 줄들 = (books ?? []).filter((b) => b.data.auto === auto.id).sort((x, y) => String(y.data.run_at).localeCompare(String(x.data.run_at))).slice(0, 20);
+  if (!줄들.length) return null;
+  const waiting = 줄들.filter((b) => b.data.state === 'waiting');
+  return el('details', { class: 'auto-books', open: waiting.length ? '' : null },
+    el('summary', {}, waiting.length ? `예약 ${waiting.length}건 기다리는 중` : '지난 예약'),
+    el('ul', { class: 'auto-list' }, 줄들.map((b) => {
+      const d = b.data;
+      return el('li', { class: d.state === 'failed' ? 'bad' : d.state === 'canceled' || d.state === 'done' ? 'off' : '' },
+        el('span', { class: 'auto-person' },
+          el('span', { class: 'auto-who' }, `${때글(d.run_at)} · ${예약상태이름[d.state] ?? d.state}`),
+          el('span', { class: 'auto-sub' }, [d.summary, d.where, d.detail].filter(Boolean).join(' · '))),
+        d.state === 'waiting'
+          ? iconButton('trash', '이 예약 취소', async () => {
+            if (!await confirmBox({ title: '이 예약을 취소할까요?', message: `${때글(d.run_at)} 에 나갈 예정입니다.`, confirm: '취소하기' })) return;
+            try { await ctx.store.saveRecord('book', b.id, { ...d, state: 'canceled', done_at: new Date().toISOString() }); toast('예약을 취소했습니다'); refresh(); } catch (e) { toast(e.message, { error: true }); }
+          })
+          : null);
+    })));
 }
 
 // ---------- 장기근속 케어 메일 ----------
@@ -257,7 +327,7 @@ function longServiceCard(auto, ctx, settings, runs, refresh) {
 
 const CARD = { 'payroll-notice': payrollCard, 'longservice-mail': longServiceCard };
 
-function card(auto, ctx, settings, runs, refresh) {
+function card(auto, ctx, settings, runs, refresh, books) {
   const last = lastOf(runs, auto.id);
   return el('section', { class: 'auto-card card' },
     el('div', { class: 'auto-head' },
@@ -265,18 +335,28 @@ function card(auto, ctx, settings, runs, refresh) {
       el('div', { class: 'auto-title' }, el('h2', {}, auto.title), el('p', {}, auto.what)),
       el('button', { type: 'button', class: 'btn ghost sm', onclick: () => historyDrawer(auto, runs) }, icon('refresh'), '내역'),
       ctx.canEdit ? el('button', { type: 'button', class: 'btn ghost sm', onclick: () => ctx.openSettings(auto.id === 'payroll-notice' ? 'payroll' : 'longservice', refresh) }, icon('edit'), '설정') : null),
-    ctx.canEdit ? CARD[auto.id](auto, ctx, settings, runs, refresh) : el('p', { class: 'lead-muted' }, '보기 전용입니다. 관리자가 로그인하면 실행할 수 있습니다.'),
+    ctx.canEdit ? CARD[auto.id](auto, ctx, settings, runs, refresh, books) : el('p', { class: 'lead-muted' }, '보기 전용입니다. 관리자가 로그인하면 실행할 수 있습니다.'),
     last ? el('p', { class: 'auto-last' + (last.ok ? '' : ' bad') }, `마지막 실행 ${stamp(last.at)} · ${last.detail}`) : null);
 }
 
-function listRow(auto, runs, ctx) {
+function listRow(auto, runs, books) {
   const last = lastOf(runs, auto.id);
+  const waiting = (books ?? []).filter((b) => b.data.auto === auto.id && b.data.state === 'waiting').length;
   return el('li', {}, el('a', { class: 'auto-row', href: '#/auto/' + auto.id },
     chip(icon(auto.icon)),
     el('span', { class: 'auto-rowtext' },
-      el('span', { class: 'auto-rowtitle' }, auto.title),
+      el('span', { class: 'auto-rowtitle' }, auto.title, waiting ? el('span', { class: 'auto-mark' }, `예약 ${waiting}건`) : null),
       el('span', { class: 'auto-rowwhat' }, auto.what),
       last ? el('span', { class: 'auto-rowlast' + (last.ok ? '' : ' bad') }, `마지막 ${stamp(last.at)} · ${last.detail}`) : null),
+    icon('right')));
+}
+
+function screenRow(b) {
+  return el('li', {}, el('a', { class: 'auto-row', href: '#/' + b.view },
+    chip(icon(b.icon)),
+    el('span', { class: 'auto-rowtext' },
+      el('span', { class: 'auto-rowtitle' }, b.title),
+      el('span', { class: 'auto-rowwhat' }, b.what)),
     icon('right')));
 }
 
@@ -285,11 +365,16 @@ export async function renderAuto(root, ctx, id = '') {
   const refresh = () => renderAuto(root, ctx, id);
   root.replaceChildren(el('div', { class: 'card' }, el('p', { class: 'lead-muted' }, '불러오는 중')));
   let runs = [];
+  let books = [];
   let settings;
   let locked = '';
   try {
     settings = await ctx.settings();
-    try { runs = await ctx.store.records('run'); } catch (e) { locked = e.message; }
+    try {
+      await 지난예약처리(ctx).catch(() => 0);
+      runs = await ctx.store.records('run');
+      books = await ctx.store.records('book').catch(() => []);
+    } catch (e) { locked = e.message; }
   } catch (e) {
     root.replaceChildren(el('div', { class: 'card' }, el('p', { class: 'sec-empty' }, e.message)));
     return;
@@ -299,7 +384,7 @@ export async function renderAuto(root, ctx, id = '') {
     const auto = AUTOS.find((a) => a.id === id);
     root.replaceChildren(
       el('a', { class: 'btn ghost sm auto-back', href: '#/auto' }, icon('left'), '자동화 전체'),
-      auto ? card(auto, ctx, settings, runs, refresh) : el('div', { class: 'card' }, el('p', { class: 'sec-empty' }, '그런 자동화를 찾을 수 없습니다')));
+      auto ? card(auto, ctx, settings, runs, refresh, books) : el('div', { class: 'card' }, el('p', { class: 'sec-empty' }, '그런 자동화를 찾을 수 없습니다')));
     return;
   }
 
@@ -308,17 +393,6 @@ export async function renderAuto(root, ctx, id = '') {
     el('p', { class: 'lead-muted', style: 'margin:-6px 0 14px' }, '버튼 하나로 대신할 수 있는 일입니다. 보낼 내용을 먼저 보여 드리고, 확인을 누르면 그때 나갑니다.'),
     locked ? el('p', { class: 'cal-warn' }, icon('alert'), locked + ' 실행 내역과 입사자·직원명부는 로그인한 뒤에 보입니다.') : null,
     el('ul', { class: 'auto-rows' },
-      el('li', {}, el('a', { class: 'auto-row', href: '#/hire' },
-        chip(icon('user-add')),
-        el('span', { class: 'auto-rowtext' },
-          el('span', { class: 'auto-rowtitle' }, '신규 입사자'),
-          el('span', { class: 'auto-rowwhat' }, '입사 확정 → 일정·공지·안내 메일 → 명부 등재까지 한 자리에서 합니다.')),
-        icon('right'))),
-      ...AUTOS.map((a) => listRow(a, runs, ctx)),
-      el('li', {}, el('a', { class: 'auto-row', href: '#/cert' },
-        chip(icon('doc')),
-        el('span', { class: 'auto-rowtext' },
-          el('span', { class: 'auto-rowtitle' }, '증명서 발급'),
-          el('span', { class: 'auto-rowwhat' }, '면접확인서·취업활동 증명서·재직증명서·경력증명서를 PDF 로 만들고 발급대장에 적습니다.')),
-        icon('right'))))));
+      ...SCREENS.map(screenRow),
+      ...AUTOS.map((a) => listRow(a, runs, books)))));
 }

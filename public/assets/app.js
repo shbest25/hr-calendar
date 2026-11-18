@@ -4,18 +4,18 @@ import { icon } from './icons.js';
 import { hashOf, viewOf } from './route.js';
 import { detectStore } from './store.js';
 import { renderCalendar } from './calview.js';
-import { renderAuto, AUTOS } from './autoview.js';
-import { renderHire, upcomingHires } from './hireview.js';
+import { renderAuto } from './autoview.js';
+import { renderHire } from './hireview.js';
 import { renderCert } from './certview.js';
 import { renderStaff } from './staffview.js';
 import { renderEval } from './evalview.js';
 import { renderOrg } from './orgview.js';
 import { renderTo } from './toview.js';
+import { renderWelfare } from './welfareview.js';
+import { renderHome } from './homeview.js';
 import { openSettings } from './settingsview.js';
-import { loadDoc } from './docs.js';
-import { ORG_ID, TO_ID, treeOf, topUnits, countPeople, 세기, 합계 } from './orgchart.js';
+import { 예약시계 } from './autobook.js';
 import { field, openDrawer, toast } from './ui.js';
-import { todayYmd, thisMonth, 요일글 } from './autotext.js';
 
 const root = document.getElementById('app');
 const store = await detectStore();
@@ -55,11 +55,12 @@ const NAV = [
   ['auto', '자동화 전체', 'app'],
   ['hire', '신규 입사자', 'user-add'],
   ['cert', '증명서 발급', 'doc'],
+  ['welfare', '복지카드', 'card'],
   ['auto:payroll-notice', '급여 공지 보내기', 'wallet'],
   ['auto:longservice-mail', '장기근속 케어 메일', 'heart'],
 ];
 const TITLE = {
-  home: '홈', calendar: '캘린더', staff: '직원명부', eval: '평가 현황', org: '조직도', to: 'TO표', auto: '자동화', hire: '신규 입사자', cert: '증명서 발급',
+  home: '홈', calendar: '캘린더', staff: '직원명부', eval: '평가 현황', org: '조직도', to: 'TO표', auto: '자동화', hire: '신규 입사자', cert: '증명서 발급', welfare: '복지카드',
   'auto:payroll-notice': '급여 공지 보내기', 'auto:longservice-mail': '장기근속 케어 메일',
 };
 const links = {};
@@ -163,81 +164,6 @@ if (location.hash.startsWith('#error')) {
   setTimeout(() => toast(why), 300);
 }
 
-// ---------- 홈 ----------
-async function renderHome(target) {
-  const today = todayYmd();
-  const todayCard = el('div', { class: 'card home-today' },
-    el('div', { class: 'home-date' }, el('b', {}, `${Number(today.slice(5, 7))}.${Number(today.slice(8, 10))}`), el('span', {}, 요일글(today))),
-    el('div', { class: 'home-todo' }, el('h3', {}, '오늘 할 일'), el('p', { class: 'lead-muted' }, '불러오는 중')),
-    el('a', { class: 'btn ghost', href: hashOf('calendar') }, icon('calendar'), '캘린더 열기'));
-  const hireCard = el('div', { class: 'card' }, el('h3', {}, '입사 예정'), el('p', { class: 'lead-muted' }, '불러오는 중'));
-  const orgCard = el('div', { class: 'card home-org' }, el('h3', {}, '인원 · TO'), el('p', { class: 'lead-muted' }, '불러오는 중'));
-  target.replaceChildren(
-    todayCard,
-    orgCard,
-    el('div', { class: 'home-grid' },
-      el('div', { class: 'card home-autos' },
-        el('div', { class: 'home-autos-head' }, el('h3', {}, '자동화'), el('a', { href: hashOf('auto') }, '전체 보기')),
-        el('div', { class: 'home-auto-grid' },
-          el('a', { class: 'home-auto', href: hashOf('hire') }, el('span', { class: 'chip' }, icon('user-add')), el('span', {}, '신규 입사자'), icon('right')),
-          ...AUTOS.map((a) => el('a', { class: 'home-auto', href: hashOf('auto:' + a.id) }, el('span', { class: 'chip' }, icon(a.icon)), el('span', {}, a.title), icon('right'))),
-          el('a', { class: 'home-auto', href: hashOf('cert') }, el('span', { class: 'chip' }, icon('doc')), el('span', {}, '증명서 발급'), icon('right')))),
-      hireCard,
-      el('div', { class: 'card' },
-        el('h3', {}, '어떻게 쓰나요'),
-        el('p', {}, '① 캘린더에 급여·세무·복지 같은 반복 업무를 올려 두고 한 일은 눌러 완료 체크합니다. ② 신규 입사자는 등록하면 일정·공지·안내 메일을 한 자리에서 처리합니다. ③ 급여 공지·장기근속 메일은 미리보기를 본 뒤 실행합니다. ④ 증명서는 값을 넣고 PDF 로 내려받으면 발급대장에 적힙니다.')),
-      el('div', { class: 'card' }, el('h3', {}, MODE.title), el('p', {}, MODE.text))));
-
-  // 오늘 기한인 일정
-  try {
-    const data = await store.month(thisMonth());
-    const items = data.items.filter((x) => x.due === today);
-    const box = todayCard.querySelector('.home-todo');
-    const colorOf = (key) => data.categories.find((c) => c.key === key)?.color ?? '#616161';
-    box.replaceChildren(el('h3', {}, '오늘 할 일'),
-      items.length
-        ? el('ul', { class: 'home-list' }, items.map((it) => el('li', { class: it.done ? 'done' : '' }, el('span', { class: 'cal-dot', style: 'background:' + colorOf(it.category) }), el('span', {}, it.title), it.lead ? el('small', {}, it.lead) : null)))
-        : el('p', { class: 'lead-muted' }, '오늘 기한인 일정이 없습니다.'));
-  } catch (e) {
-    todayCard.querySelector('.home-todo').replaceChildren(el('h3', {}, '오늘 할 일'), el('p', { class: 'lead-muted' }, e.message));
-  }
-  // 입사 예정자
-  try {
-    const rows = await store.records('hire');
-    const soon = upcomingHires(rows, today).slice(0, 6);
-    hireCard.replaceChildren(el('h3', {}, '입사 예정'),
-      soon.length
-        ? el('ul', { class: 'home-list' }, soon.map((h) => el('li', {}, el('b', { class: 'home-dday' + (h.when.includes('지남') ? ' past' : '') }, h.when), el('span', {}, h.name), el('small', {}, `${h.dept} · ${h.start_date}`))))
-        : el('p', { class: 'lead-muted' }, '입사 예정자가 없습니다.'),
-      el('a', { class: 'btn ghost sm', href: hashOf('hire'), style: 'margin-top:10px' }, '신규 입사자 열기'));
-  } catch (e) {
-    hireCard.replaceChildren(el('h3', {}, '입사 예정'), el('p', { class: 'lead-muted' }, ctx.canEdit ? e.message : '관리자가 로그인하면 보입니다.'));
-  }
-  // 인원 카드: 전사 합계와 맨 위 조직마다 한 칸. TO 숫자는 관리자만(TO 기록을 못 읽으면 사람 수만).
-  try {
-    const org = await loadDoc(store, 'org', ORG_ID, { rows: [] });
-    const tree = treeOf(org.rows);
-    const tops = topUnits(tree);
-    let counts = null;
-    try { counts = 세기(tree, (await loadDoc(store, 'to', TO_ID, { seats: [] })).seats); } catch { counts = null; }
-    const c = (id) => counts?.get(String(id));
-    const toLine = (x, id) => (x ? el('a', { class: 'home-to', href: hashOf('to') + (id ? `?tab=${id}` : '') },
-      el('span', {}, '최종 TO', el('b', {}, String(x.최종))), el('span', {}, '잔여', el('b', { class: 'rest' }, String(x.잔여))),
-      x.채용중 ? el('span', {}, '채용 중', el('b', {}, String(x.채용중))) : null, x.입사예정 ? el('span', {}, '입사 예정', el('b', {}, String(x.입사예정))) : null) : null);
-    const total = tops.reduce((n, r) => n + countPeople(r), 0);
-    const all = counts ? 합계(tops.map((r) => ({ depth: 0, c: c(r.id) }))) : null;
-    orgCard.replaceChildren(
-      el('div', { class: 'home-org-head' }, el('h3', {}, '인원 · TO'), el('a', { href: hashOf('org') }, '조직도 보기')),
-      tops.length
-        ? el('div', { class: 'home-org-grid' },
-          el('a', { class: 'home-org-one all', href: hashOf('org') }, el('span', { class: 'n' }, el('b', {}, String(total)), '명'), el('span', { class: 'l' }, '전사 통합'), toLine(all, '')),
-          tops.map((r) => el('a', { class: 'home-org-one', href: hashOf('org') + `?tab=${r.id}` }, el('span', { class: 'n' }, el('b', {}, String(countPeople(r))), '명'), el('span', { class: 'l' }, r.name), toLine(c(r.id), r.id))))
-        : el('p', { class: 'lead-muted' }, '조직도가 아직 비어 있습니다. [조직도] 에서 만들어 보세요.'));
-  } catch (e) {
-    orgCard.replaceChildren(el('h3', {}, '인원 · TO'), el('p', { class: 'lead-muted' }, ctx.canEdit ? e.message : '관리자가 로그인하면 보입니다.'));
-  }
-}
-
 function paint() {
   const view = viewOf(location.hash);
   for (const [v, a] of Object.entries(links)) a.classList.toggle('on', v === view);
@@ -251,10 +177,16 @@ function paint() {
   else if (view === 'eval') renderEval(board, ctx);
   else if (view === 'org') renderOrg(board, ctx);
   else if (view === 'to') renderTo(board, ctx);
+  else if (view === 'welfare') renderWelfare(board, ctx);
   else if (view === 'auto') renderAuto(board, ctx, '');
   else if (view.startsWith('auto:')) renderAuto(board, ctx, view.slice(5));
-  else renderHome(board);
+  else renderHome(board, ctx, { mode: MODE });
 }
 
 window.addEventListener('hashchange', paint);
 paint();
+// 자동화 예약은 서버 없이 브라우저가 열려 있을 때 때가 되면 나간다(autobook.js). 바뀐 것이 있으면 알리고 홈이면 다시 그린다.
+예약시계(ctx, (n) => {
+  toast(`예약 ${n}건을 처리했습니다. 홈의 자동화 현황에서 확인해 주세요.`);
+  if (viewOf(location.hash) === 'home') paint();
+});
