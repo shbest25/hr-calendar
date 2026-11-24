@@ -6,6 +6,8 @@ import { detectStore } from './store.js';
 import { renderCalendar } from './calview.js';
 import { renderAuto } from './autoview.js';
 import { renderHire } from './hireview.js';
+import { renderOffboard } from './offboardview.js';
+import { 퇴직시계 } from './offboardrun.js';
 import { renderCert } from './certview.js';
 import { renderStaff } from './staffview.js';
 import { renderEval } from './evalview.js';
@@ -54,13 +56,14 @@ const NAV = [
   null,
   ['auto', '자동화 전체', 'app'],
   ['hire', '신규 입사자', 'user-add'],
+  ['offboard', '퇴직자', 'open'],
   ['cert', '증명서 발급', 'doc'],
   ['welfare', '복지카드', 'card'],
   ['auto:payroll-notice', '급여 공지 보내기', 'wallet'],
   ['auto:longservice-mail', '장기근속 케어 메일', 'heart'],
 ];
 const TITLE = {
-  home: '홈', calendar: '캘린더', staff: '직원명부', eval: '평가 현황', org: '조직도', to: 'TO표', auto: '자동화', hire: '신규 입사자', cert: '증명서 발급', welfare: '복지카드',
+  home: '홈', calendar: '캘린더', staff: '직원명부', eval: '평가 현황', org: '조직도', to: 'TO표', auto: '자동화', hire: '신규 입사자', offboard: '퇴직자', cert: '증명서 발급', welfare: '복지카드',
   'auto:payroll-notice': '급여 공지 보내기', 'auto:longservice-mail': '장기근속 케어 메일',
 };
 const links = {};
@@ -173,6 +176,7 @@ function paint() {
   if (view === 'calendar') renderCalendar(board, store);
   else if (view === 'staff') renderStaff(board, ctx);
   else if (view === 'hire') renderHire(board, ctx);
+  else if (view === 'offboard') renderOffboard(board, ctx);
   else if (view === 'cert') renderCert(board, ctx);
   else if (view === 'eval') renderEval(board, ctx);
   else if (view === 'org') renderOrg(board, ctx);
@@ -189,4 +193,9 @@ paint();
 예약시계(ctx, (n) => {
   toast(`예약 ${n}건을 처리했습니다. 홈의 자동화 현황에서 확인해 주세요.`);
   if (viewOf(location.hash) === 'home') paint();
+});
+// 퇴직자의 조직도 정리(마지막 근무일·실퇴직일 17:00)도 같은 식이다 — 때가 지난 뒤 관리자가 앱을 열면 한다(offboardrun.js).
+퇴직시계(ctx, (n) => {
+  toast(`퇴직자 조직도 정리 ${n}건을 했습니다. 퇴직자 화면에서 확인해 주세요.`);
+  if (['offboard', 'org'].includes(viewOf(location.hash))) paint();
 });

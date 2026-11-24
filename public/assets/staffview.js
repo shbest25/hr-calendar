@@ -42,7 +42,12 @@ function editDrawer(ctx, row, refresh) {
     el('div', { class: 'row' }, field('그룹입사일', text('group_joined', { type: 'date' }), '전적·재입사자는 처음 입사일. 비우면 입사일과 같게 봅니다(복지카드 금액·3개월 셈).'),
       field('휴직 시작', text('leave_from', { type: 'date' })), field('휴직 종료', text('leave_to', { type: 'date' }), '복직 예정일')),
     el('div', { class: 'row' }, field('회사 이메일', text('email', { type: 'email' }), '장기근속 메일이 이 주소로 갑니다.'), field('연락처', text('phone'))),
-    el('div', { class: 'row' }, field('고용형태', text('employ_type', { placeholder: '정규 / 계약' })), field('메모', text('note'))));
+    el('div', { class: 'row' }, field('고용형태', text('employ_type', { placeholder: '정규 / 계약' })), field('메모', text('note'))),
+    // 퇴직자 등록이 잔여연차를 셀 때 쓰는 값(2026-11-23). 비워 두면 등록할 때 직접 적는다.
+    el('div', { class: 'row' },
+      field('사용 연차(일)', text('leave_used', { inputmode: 'decimal', placeholder: '예: 12.5' }), '그룹입사일부터 지금까지 쓴 연차. 퇴직자 등록이 잔여연차를 셀 때 씁니다.'),
+      field('연차 정산', text('leave_settled', { placeholder: '예: 2024:3, 2025:1.5' }), '돈으로 정산한 연차를 해:일수 로 적습니다.'),
+      field('대체휴가(일)', text('leave_extra', { inputmode: 'decimal', placeholder: '0' }), '따로 더해 줄 일수.')));
   const saveBtn = el('button', { type: 'button', class: 'btn primary' }, icon('check'), '저장');
   saveBtn.addEventListener('click', async () => {
     error.hidden = true;
@@ -157,15 +162,17 @@ export async function renderStaff(root, ctx) {
   const body = el('div', {});
   const paint = () => {
     const q = query.trim();
-    const list = rows.filter((r) => showLeft || !r.data.left).filter((r) => !q || `${r.data.name} ${r.data.emp_no} ${fullDept(r.data)} ${r.data.job}`.includes(q));
+    // 퇴사일이 아직 안 지난 사람(퇴직 예정)은 재직으로 센다 — 퇴직자 등록이 실퇴직일을 미리 적어 둔다.
+    const 나감 = (s) => Boolean(s.left) && s.left <= todayYmd();
+    const list = rows.filter((r) => showLeft || !나감(r.data)).filter((r) => !q || `${r.data.name} ${r.data.emp_no} ${fullDept(r.data)} ${r.data.job}`.includes(q));
     body.replaceChildren(
-      el('p', { class: 'lead-muted', style: 'margin:0 0 10px' }, `재직 ${rows.filter((r) => !r.data.left).length}명 · 퇴사 ${rows.filter((r) => r.data.left).length}명` + (q ? ` · 찾은 사람 ${list.length}명` : '')),
+      el('p', { class: 'lead-muted', style: 'margin:0 0 10px' }, `재직 ${rows.filter((r) => !나감(r.data)).length}명 · 퇴사 ${rows.filter((r) => 나감(r.data)).length}명` + (q ? ` · 찾은 사람 ${list.length}명` : '')),
       list.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'tbl' },
         el('thead', {}, el('tr', {}, ['이름', '사번', '소속', '직군 / 직무', '직책', '입사일', '근속', '회사 이메일', ''].map((h) => el('th', {}, h)))),
         el('tbody', {}, list.map((r) => {
           const s = r.data;
-          return el('tr', { class: s.left ? 'off' : '' },
-            el('td', {}, el('b', {}, s.name), s.left ? el('small', { class: 'tag-off' }, `퇴사 ${s.left}`) : null),
+          return el('tr', { class: 나감(s) ? 'off' : '' },
+            el('td', {}, el('b', {}, s.name), s.left ? el('small', { class: 'tag-off' }, `${나감(s) ? '퇴사' : '퇴사 예정'} ${s.left}`) : null),
             el('td', {}, s.emp_no || '-'), el('td', {}, fullDept(s) || '-'), el('td', {}, [s.job_group, s.job].filter(Boolean).join(' / ') || '-'),
             el('td', {}, s.title || '-'), el('td', {}, s.joined || '-'), el('td', {}, tenure(s)), el('td', {}, s.email || '-'),
             el('td', {}, ctx.canEdit ? iconButton('edit', '고치기', () => editDrawer(ctx, r, refresh)) : null));

@@ -8,6 +8,7 @@ import { HOLIDAYS, COVERED_YEARS } from './holidays.js';
 import { DEFAULT_CATEGORIES, cleanItem, cleanCategories, cleanRecord, mergeSettings } from './model.js';
 import { SUPABASE } from './config.js';
 import { 대상월기본, 지난달, 월끝, 월글, 근속금액 } from './welfarecalc.js';
+import { 잔여연차, 소속글, 문안종류 } from './offboardcalc.js';
 
 const KEY = 'hr-calendar-v1';
 const uid = () => 'cal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -56,11 +57,23 @@ function loadLocal() {
           const mine = saved.records.find((r) => r.id === 'rec_evals')?.data.lists?.find((l) => l.id === 'el_probation');
           if (probation && mine && !mine.people.some((p) => p.id === 'ev_p4')) mine.people.push(probation.people.find((p) => p.id === 'ev_p4'));
         }
+        // 퇴직자 보기 자료(2026-11-23)와 잔여연차를 셀 사용 연차. 한 번만 넣는다(지운 뒤 다시 생기지 않게 표시해 둔다).
+        if (!saved.seeded_offboard) {
+          saved.seeded_offboard = true;
+          const ids = new Set(saved.records.map((r) => r.id));
+          const 명부 = new Map(saved.records.filter((r) => r.kind === 'staff').map((r) => [r.data.emp_no, r]));
+          for (const f of fresh.filter((r) => r.kind === 'staff')) {
+            const mine = 명부.get(f.data.emp_no);
+            if (!mine) continue;
+            for (const k of ['leave_used', 'leave_settled', 'leave_extra']) if (f.data[k] !== undefined && mine.data[k] === undefined) mine.data[k] = f.data[k];
+          }
+          if (!has('offboard') && 명부.has('E1006')) saved.records.push(...fresh.filter((r) => r.kind === 'offboard' && !ids.has(r.id)));
+        }
       }
       return saved;
     }
   } catch { /* 깨진 저장은 버린다 */ }
-  return { items: seedItems(), done: [], categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })), records: seedRecords() };
+  return { items: seedItems(), done: [], categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })), records: seedRecords(), seeded_offboard: true };
 }
 
 // 체험 모드의 보기 직원명부(가공 데이터). 장기근속 메일·재직증명서가 찾을 사람이 있어야 눌러 볼 수 있다.
@@ -73,19 +86,20 @@ function seedRecords() {
   const ago = (n) => new Date(today.getTime() - n * 86400000).toISOString();
   const agoDay = (n) => ago(n).slice(0, 10);
   // 복지카드 보기 자료가 여러 경우(3년 지남·휴직·퇴사 예정·수습 통과·전적·항상 제외)를 보여 주도록 열한 명을 둔다.
+  // leave_used(사용 연차)·leave_settled(연차 정산)·leave_extra(대체휴가)는 퇴직자 등록이 잔여연차를 셀 때 쓴다 — 홍길동은 일부러 비워 '직접 적기' 를 보여 준다.
   const staff = [
     { name: '홍길동', emp_no: 'E1001', dept: '경영지원실', team: '인사팀', part: '', job_group: '경영/사업', job: '인사 담당', title: '팀장', joined: `${y - 6}-${m}-10`, left: '', email: 'gildong@example.com', employ_type: '정규' },
-    { name: '김보람', emp_no: 'E1002', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '파트장', joined: `${y - 3}-${m}-02`, left: '', email: 'boram@example.com', employ_type: '정규' },
-    { name: '이서준', emp_no: 'E1003', dept: '디자인실', team: 'UX팀', part: '', job_group: '아트', job: 'UI 디자인', title: '파트장', joined: `${y - 1}-03-15`, left: '', email: 'seojun@example.com', employ_type: '정규' },
+    { name: '김보람', emp_no: 'E1002', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '파트장', joined: `${y - 3}-${m}-02`, left: '', email: 'boram@example.com', employ_type: '정규', leave_used: 44 },
+    { name: '이서준', emp_no: 'E1003', dept: '디자인실', team: 'UX팀', part: '', job_group: '아트', job: 'UI 디자인', title: '파트장', joined: `${y - 1}-03-15`, left: '', email: 'seojun@example.com', employ_type: '정규', leave_used: 18 },
     { name: '박지우', emp_no: 'E0907', dept: '사업실', team: '마케팅팀', part: '', job_group: '마케팅', job: '퍼포먼스 마케팅', title: '', joined: `${y - 4}-05-20`, left: `${y - 1}-08-31`, email: '', employ_type: '정규' },
-    { name: '최다은', emp_no: 'E1004', dept: '경영지원실', team: '인사팀', part: '', job_group: '스탭', job: '인사 운영', title: '파트장', joined: `${y - 2}-07-01`, left: '', email: 'daeun@example.com', employ_type: '정규' },
+    { name: '최다은', emp_no: 'E1004', dept: '경영지원실', team: '인사팀', part: '', job_group: '스탭', job: '인사 운영', title: '파트장', joined: `${y - 2}-07-01`, left: '', email: 'daeun@example.com', employ_type: '정규', leave_used: 30 },
     { name: '한지민', emp_no: 'E1005', dept: '경영지원실', team: '총무팀', part: '', job_group: '스탭', job: '총무', title: '파트장', joined: `${y - 4}-03-02`, left: '', leave_from: agoDay(45), leave_to: soon(40), email: 'jimin@example.com', employ_type: '정규' },
-    { name: '송민재', emp_no: 'E1006', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '', joined: `${y - 2}-09-01`, left: soon(20), email: 'minjae@example.com', employ_type: '정규' },
-    { name: '신동엽', emp_no: 'E1007', dept: '개발실', team: '클라이언트팀', part: '', job_group: '프로그램', job: '클라이언트 개발', title: '', joined: agoDay(75), left: '', email: 'dongyeop@example.com', employ_type: '정규' },
-    { name: '류하린', emp_no: 'E1008', dept: '디자인실', team: '아트팀', part: '', job_group: '아트', job: '배경 아트', title: '', joined: agoDay(100), left: '', email: 'harin@example.com', employ_type: '정규' },
+    { name: '송민재', emp_no: 'E1006', dept: '개발실', team: '서버팀', part: '', job_group: '프로그램', job: '서버 개발', title: '', joined: `${y - 2}-09-01`, left: soon(20), email: 'minjae@example.com', employ_type: '정규', leave_used: 25 },
+    { name: '신동엽', emp_no: 'E1007', dept: '개발실', team: '클라이언트팀', part: '', job_group: '프로그램', job: '클라이언트 개발', title: '', joined: agoDay(75), left: '', email: 'dongyeop@example.com', employ_type: '정규', leave_used: 1 },
+    { name: '류하린', emp_no: 'E1008', dept: '디자인실', team: '아트팀', part: '', job_group: '아트', job: '배경 아트', title: '', joined: agoDay(100), left: '', email: 'harin@example.com', employ_type: '정규', leave_used: 0 },
     { name: '백서윤', emp_no: 'E1009', dept: '개발실', team: 'QA팀', part: '', job_group: 'QA', job: 'QA', title: '', joined: agoDay(20), left: '', email: 'seoyun@example.com', employ_type: '계약', contract_end: soon(345) },
     { name: '윤서아', emp_no: 'E1010', dept: '경영진', team: '', part: '', job_group: '경영/사업', job: 'CFO', title: 'CFO', joined: `${y - 5}-01-02`, left: '', email: 'seoa@example.com', employ_type: '정규' },
-    { name: '김태오', emp_no: 'E1011', dept: '경영지원실', team: '재무팀', part: '', job_group: '경영/사업', job: '회계', title: '', joined: `${y - 1}-02-01`, group_joined: `${y - 4}-02-01`, left: '', email: 'taeo@example.com', employ_type: '정규' },
+    { name: '김태오', emp_no: 'E1011', dept: '경영지원실', team: '재무팀', part: '', job_group: '경영/사업', job: '회계', title: '', joined: `${y - 1}-02-01`, group_joined: `${y - 4}-02-01`, left: '', email: 'taeo@example.com', employ_type: '정규', leave_used: 50, leave_settled: `${y - 5}:4, ${y - 2}:3`, leave_extra: 1 },
   ];
   const rows = staff.map((s, i) => ({ id: 'rec_seed' + i, kind: 'staff', data: s, created_at: now, updated_at: now }));
 
@@ -138,7 +152,42 @@ function seedRecords() {
   rows.push(...seedOrg({ y, soon, ago, now }));
   rows.push(...seedWelfare({ staff, today, ago, now }));
   rows.push(...seedBooks({ soon, ago, lmLabel }));
+  rows.push(...seedOffboard({ staff, ago, agoDay }));
   return rows;
+}
+
+// 퇴직자 한 명: 이미 등록해 조직도 첫 정리(퇴직예정자 칸으로 옮기기)까지 끝났고, 실퇴직일의 둘째 정리를 기다리는 사람.
+// 조직도·TO표 보기 자료의 송민재(퇴직예정자 칸, 서버 파트 결원 TO)와 짝이다.
+function seedOffboard({ staff, ago, agoDay }) {
+  const at = staff.findIndex((x) => x.emp_no === 'E1006');
+  const s = staff[at];
+  const 퇴직 = s.left;
+  const 마지막 = agoDay(3);
+  const 잔여 = 잔여연차(s, 퇴직, {});
+  const kind = 문안종류(s.joined, 퇴직);
+  const ok = (days, 말, extra = {}) => ({ status: 'ok', at: ago(days), by: '김담당', 말, ...extra });
+  const data = {
+    name: s.name, emp_no: s.emp_no, staff_id: 'rec_seed' + at, dept: 소속글(s), title: s.title, job_group: s.job_group, job: s.job,
+    email: s.email, join_date: s.joined, group_join_date: '', last_day: 마지막, leave_day: 퇴직, reason: '자발적인 퇴사', adjust: 0, used_direct: null,
+    notice_kind: kind, leave_days: 잔여?.잔여 ?? null, basis: 잔여, org_row_id: '',
+    results: {
+      'roster-date': ok(6, `직원명부 퇴사일 칸에 ${퇴직} 을(를) 적었습니다.`, { 값: 퇴직, 이전: '' }),
+      channel: ok(6, '문구를 복사했습니다. 슬랙 #팀-피플 에 붙여 넣어 주세요.', { where: '#팀-피플', copied: true }),
+      dm: ok(6, '문안을 복사했습니다. 슬랙에서 송민재 님에게 DM 으로 붙여 넣어 주세요.', { kind, copied: true }),
+    },
+    slots: {
+      'org-first': { status: 'done', 때: `${마지막} 17:00`, note: '상자를 퇴직예정자 칸으로 옮겼습니다, 결원 TO 1개를 만들었습니다.', done_at: ago(3) },
+      'org-second': { status: 'waiting', 때: `${퇴직} 17:00` },
+    },
+    log: [
+      { at: ago(3), by: '김담당', target: 'org-first', text: '조직도 1 · 상자를 퇴직예정자 칸으로 옮겼습니다, 결원 TO 1개를 만들었습니다.' },
+      { at: ago(6), by: '김담당', target: 'dm', text: 'DM · 문안을 복사했습니다.' },
+      { at: ago(6), by: '김담당', target: 'channel', text: '채널 · 문구를 복사했습니다.' },
+      { at: ago(6), by: '김담당', target: 'roster-date', text: `퇴사일 · 직원명부 퇴사일 칸에 ${퇴직} 을(를) 적었습니다.` },
+      { at: ago(6), by: '김담당', target: 'register', text: '퇴직자 등록' },
+    ],
+  };
+  return [{ id: 'rec_seedoff0', kind: 'offboard', data, created_at: ago(6), updated_at: ago(3) }];
 }
 
 // 복지카드: 지난달 확정 명단과 항상 제외 목록. 대상월(20일 이후면 다음 달)의 '지난달' 에 맞춰 넣는다.

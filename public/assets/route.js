@@ -1,6 +1,6 @@
 // 해시(#/...) 주소. 경로(/calendar)로 하면 정적 호스팅이 404 를 주고, 로그인 왕복에도 해시는 그대로 남는다.
 // 화면마다 주소가 따로 있다(#/calendar, #/auto/payroll-notice …). 링크를 그대로 건네줄 수 있고, 뒤로가기가 앱 안에서 돈다.
-const PLAIN = new Set(['home', 'calendar', 'auto', 'hire', 'cert', 'staff', 'eval', 'org', 'to', 'welfare']);
+const PLAIN = new Set(['home', 'calendar', 'auto', 'hire', 'offboard', 'cert', 'staff', 'eval', 'org', 'to', 'welfare']);
 // 자동화 업무 하나를 보는 주소: #/auto/<id>  → 화면 이름 'auto:<id>'
 const AUTOS = new Set(['payroll-notice', 'longservice-mail']);
 

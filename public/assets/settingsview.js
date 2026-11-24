@@ -3,12 +3,14 @@
 import { el } from './dom.js';
 import { icon } from './icons.js';
 import { chip, field, iconButton, openDrawer, toast } from './ui.js';
+import { 기본번호, 번호표이름, 번호표문제 } from './offboardcalc.js';
 
 const TABS = [
   ['company', '회사'],
   ['payroll', '급여 공지'],
   ['longservice', '장기근속'],
   ['hire', '신규 입사자'],
+  ['offboard', '퇴직자'],
   ['cert', '증명서'],
 ];
 
@@ -115,6 +117,32 @@ function hirePane(s) {
     keys([['{{이름}}', '홍길동'], ['{{입사일}}', '2026-11-23'], ['{{부서}} {{팀}} {{파트}}', '소속'], ['{{직군}} {{직무}}', '기획 / 시스템 기획자'], ['{{고용형태}}', '정규'], ['{{영문이름}}', 'gildong.hong'], ['{{멘션}}', '@팀장'], ['{{회사}} {{주소}} {{인사팀}} {{담당자연락처}}', '회사 설정 값']]));
 }
 
+// 퇴직자: 팀 피플 채널·공유 글·안내 DM 세 문안·일정 제목·모두싸인 번호표.
+function offboardPane(s) {
+  s.modusign = { ...기본번호, ...(s.modusign ?? {}) };
+  const 번호오류 = el('p', { class: 'form-error', hidden: true });
+  const 살피기 = () => { const 말 = 번호표문제(s.modusign); 번호오류.textContent = 말 ? `${말} 고치지 않으면 기본 번호로 엑셀을 만듭니다.` : ''; 번호오류.hidden = !말; };
+  const 번호칸 = Object.keys(기본번호).map((key) => {
+    const sel = el('select', { 'aria-label': `${번호표이름[key]} 칸 번호` }, Array.from({ length: 7 }, (_, i) => el('option', { value: String(i + 1), selected: Number(s.modusign[key]) === i + 1 }, `${i + 1}번`)));
+    sel.addEventListener('change', () => { s.modusign[key] = Number(sel.value); 살피기(); });
+    return field(번호표이름[key], sel);
+  });
+  살피기();
+  return el('div', { class: 'set-pane' },
+    el('p', { class: 'lead-muted' }, '퇴직자를 등록할 때 쓰는 채널·문구입니다. 문안을 비워 두면 그 문안의 DM 은 보내지 않습니다.'),
+    el('div', { class: 'row' }, field('팀 피플 채널', text(s, 'channel_name', { placeholder: '#팀-피플' }), '퇴직자 공유 글을 올릴 채널 이름입니다.'),
+      field('퇴사 일정 제목', text(s, 'calendar_title'), "캘린더 '입·퇴사' 분야에 만드는 일정의 제목입니다.")),
+    field('팀 피플 채널 글', area(s, 'channel', 10), '슬랙 굵게는 *글자* 입니다.'),
+    field('안내 DM · 근속 1년 이상', area(s, 'dm_over1', 12)),
+    field('안내 DM · 1년 미만', area(s, 'dm_under1', 12)),
+    field('안내 DM · 수습 중', area(s, 'dm_probation', 10)),
+    keys([['{{이름}}', '홍길동'], ['{{소속}}', '개발실 서버팀'], ['{{마지막근무일}}', '2026-12-29'], ['{{실퇴직일}}', '2026-12-31'], ['{{퇴사사유}}', '자발적인 퇴사'], ['{{잔여연차}}', '3.5'], ['{{회사}} {{인사팀}}', '회사 설정 값']]),
+    el('h4', { style: 'margin:18px 0 4px;font-size:13.5px' }, '모두싸인 번호표'),
+    el('p', { class: 'lead-muted' }, '모두싸인 퇴직서류 템플릿의 추가 내용 칸 번호입니다. 템플릿에서 칸을 옮기면 여기 번호를 바꿉니다. 번호는 서로 겹치면 안 됩니다.'),
+    el('div', { class: 'ob-set-nums' }, 번호칸),
+    번호오류);
+}
+
 function certPane(s) {
   const file = el('input', { type: 'file', accept: 'image/png,image/jpeg' });
   const status = el('span', { class: 'lead-muted' }, s.seal ? '올라가 있음' : '없음 — (인) 글자만 찍힙니다');
@@ -135,7 +163,7 @@ function certPane(s) {
       s.seal ? el('button', { type: 'button', class: 'btn ghost sm', onclick: () => { s.seal = ''; preview.hidden = true; status.textContent = '없음 — (인) 글자만 찍힙니다'; } }, '인감 지우기') : null));
 }
 
-const PANE = { company: companyPane, payroll: payrollPane, longservice: longServicePane, hire: hirePane, cert: certPane };
+const PANE = { company: companyPane, payroll: payrollPane, longservice: longServicePane, hire: hirePane, offboard: offboardPane, cert: certPane };
 
 // settings: 지금 설정(통째로). onSave(next) 가 저장한다. tab: 처음 보여 줄 탭.
 export function openSettings({ settings, tab = 'company', onSave }) {

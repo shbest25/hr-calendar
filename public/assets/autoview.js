@@ -21,6 +21,7 @@ export const AUTOS = [
 // 자동화 전체 목록 맨 위의 '화면으로 가는 블록'. 신규 입사자·증명서 발급·복지카드는 화면이 따로 있어 누르면 그 화면으로 간다.
 export const SCREENS = [
   { view: 'hire', icon: 'user-add', title: '신규 입사자', what: '입사 확정 → 일정·공지·안내 메일 → 계약서 엑셀 → 명부 등재까지 한 자리에서 합니다.' },
+  { view: 'offboard', icon: 'open', title: '퇴직자', what: '퇴직자를 등록하면 퇴사일·일정·공지·안내 DM 을 한 번에 하고, 조직도를 날짜에 맞춰 정리합니다.' },
   { view: 'cert', icon: 'doc', title: '증명서 발급', what: '면접확인서·취업활동 증명서·재직증명서·경력증명서를 PDF 로 만들고 발급대장에 적습니다.' },
   { view: 'welfare', icon: 'card', title: '복지카드', what: '매달 지급내역·한도설정과 발급·해지 내역 엑셀을 만듭니다. 관리자만 씁니다.' },
 ];
